@@ -558,9 +558,35 @@
     </div>
 
     <script>
+        // --- GOOGLE SHEETS API CONFIGURATION ---
+        const API_URL = "https://script.google.com/macros/s/AKfycbyO8faGRJsQFKx-NLuPOQ50CAiPGMLa7B0tbfAF3xLAjuaLcHVwQ-nZFAo2gTN-_T7a/exec";
+
+        // This function handles sending your data silently to Google Sheets in the background
+        function saveToBackend(type, category, item) {
+            fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
+                body: JSON.stringify({
+                    action: "saveTransaction",
+                    data: {
+                        id: item.id,
+                        date: item.date || new Date().toISOString().split('T')[0],
+                        type: type,
+                        category: category,
+                        name: item.name,
+                        amount: item.amount
+                    }
+                })
+            }).then(res => res.json())
+              .then(data => console.log("Success! Saved to Google Sheets:", data))
+              .catch(err => console.error("Could not save to Google Sheets:", err));
+        }
+
         // Data Structure & State
         let activePeriod = 'current';
-        const currentMonthPrefix = '2026-03';
+        const currentMonthPrefix = '2026-03'; // For demo purposes, we treat Mar 2026 as "Current"
 
         let mockData = {
             inflowDetails: {
@@ -912,20 +938,28 @@
 
             if (name && !isNaN(amount)) {
                 const items = mockData.expenseDetails[currentExpenseCategory];
+                let savedItem;
 
                 if (editingExpenseId !== null) {
                     const index = items.findIndex(i => i.id === editingExpenseId);
                     if (index !== -1) {
                         items[index] = { ...items[index], name: name, amount: amount }; 
+                        savedItem = items[index];
                     }
                 } else {
                     const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
-                    items.push({
+                    savedItem = {
                         id: newId,
                         date: `${currentMonthPrefix}-15`,
                         name: name,
                         amount: amount
-                    });
+                    };
+                    items.push(savedItem);
+                }
+
+                // Send to Google Sheets API
+                if(savedItem) {
+                    saveToBackend("Expense", currentExpenseCategory, savedItem);
                 }
 
                 cancelEditExpenseDetail();
@@ -1064,15 +1098,23 @@
 
             if (name && !isNaN(amount)) {
                 const items = mockData.inflowDetails[currentInflowCategory];
+                let savedItem;
 
                 if (editingInflowId !== null) {
                     const index = items.findIndex(i => i.id === editingInflowId);
                     if (index !== -1) {
                         items[index] = { ...items[index], name: name, amount: amount }; 
+                        savedItem = items[index];
                     }
                 } else {
                     const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
-                    items.push({ id: newId, date: `${currentMonthPrefix}-15`, name: name, amount: amount });
+                    savedItem = { id: newId, date: `${currentMonthPrefix}-15`, name: name, amount: amount };
+                    items.push(savedItem);
+                }
+
+                // Send to Google Sheets API
+                if(savedItem) {
+                    saveToBackend("Inflow", currentInflowCategory, savedItem);
                 }
 
                 cancelEditInflowDetail();
@@ -1177,14 +1219,23 @@
             const amount = parseFloat(amountInput.value);
 
             if (name && !isNaN(amount)) {
+                let savedItem;
+
                 if (editingBudgetId !== null) {
                     const index = mockData.budgetItems.findIndex(i => i.id === editingBudgetId);
                     if (index !== -1) {
                         mockData.budgetItems[index] = { id: editingBudgetId, name: name, amount: amount };
+                        savedItem = mockData.budgetItems[index];
                     }
                 } else {
                     const newId = mockData.budgetItems.length > 0 ? Math.max(...mockData.budgetItems.map(i => i.id)) + 1 : 1;
-                    mockData.budgetItems.push({ id: newId, name: name, amount: amount });
+                    savedItem = { id: newId, name: name, amount: amount };
+                    mockData.budgetItems.push(savedItem);
+                }
+
+                // Send to Google Sheets API
+                if(savedItem) {
+                    saveToBackend("Budget", "Recurring", savedItem);
                 }
 
                 cancelEditBudget();
@@ -1332,15 +1383,23 @@
 
             if (name && !isNaN(amount)) {
                 const items = mockData.assetDetails[currentAssetCategory];
+                let savedItem;
 
                 if (editingAssetId !== null) {
                     const index = items.findIndex(i => i.id === editingAssetId);
                     if (index !== -1) {
                         items[index] = { id: editingAssetId, name: name, amount: amount };
+                        savedItem = items[index];
                     }
                 } else {
                     const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
-                    items.push({ id: newId, name: name, amount: amount });
+                    savedItem = { id: newId, name: name, amount: amount };
+                    items.push(savedItem);
+                }
+
+                // Send to Google Sheets API
+                if(savedItem) {
+                    saveToBackend("Asset", currentAssetCategory, savedItem);
                 }
 
                 cancelEditAssetDetail();
