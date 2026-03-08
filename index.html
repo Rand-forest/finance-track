@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Expense Tracker | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        /* Dark mode overrides for glassmorphism */
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.7); /* slate-800 base */
+            border: 1px solid rgba(71, 85, 105, 0.4); /* slate-600 border */
+        }
+
+        /* Sleek custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(148, 163, 184, 0.4); /* slate-400 transparent */
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(71, 85, 105, 0.5); /* slate-600 transparent */
+        }
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        }
+
+        /* Remove arrows/spinners from number inputs */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox fallback */
+        }
+
+        /* Page Transition Animation */
+        .page-enter {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
+
+    <!-- Theme Toggle Button -->
+    <button onclick="toggleTheme()" class="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all z-10" aria-label="Toggle Theme">
+        <!-- Sun Icon (shows in dark mode) -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <!-- Moon Icon (shows in light mode) -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+    </button>
+
+    <!-- View: Main Dashboard -->
+    <div id="view-dashboard" class="max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <!-- Header -->
+        <header class="mb-8 md:mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Financial Overview</h1>
+                <p id="dashboard-subtitle" class="text-slate-500 dark:text-slate-400 mt-1 md:mt-2 text-sm md:text-base">Overall financial performance</p>
+            </div>
+            
+            <!-- Time Machine Picker -->
+            <div class="relative w-full sm:w-auto">
+                <select id="period-picker" onchange="changePeriod(this.value)" class="w-full sm:w-auto appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold transition-colors cursor-pointer">
+                    <option value="current">Current Month (Mar 2026)</option>
+                    <option value="2026-02">February 2026</option>
+                    <option value="2026-01">January 2026</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2x2 Dashboard Grid -->
+        <div class="grid grid-cols-2 gap-4 md:gap-6">
+            
+            <!-- Card 1: Expenses (Top Left) -->
+            <div onclick="switchView('view-expenses')" class="glass-card p-4 md:p-8 rounded-2xl shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 border-rose-100 dark:border-rose-900/30 cursor-pointer group relative">
+                <div class="flex items-center justify-between mb-3 md:mb-4">
+                    <span class="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 leading-tight">Expenses</span>
+                    <div class="p-1.5 md:p-2 bg-rose-50 dark:bg-rose-500/10 rounded-lg text-rose-600 dark:text-rose-400 hidden sm:block group-hover:bg-rose-100 dark:group-hover:bg-rose-500/20 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m17 5-5-3-5 3"/><path d="m17 19-5 3-5-3"/><path d="M2 12h20"/></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span id="total-expenses" class="text-lg md:text-3xl font-bold text-slate-800 dark:text-white">$0.00</span>
+                    <div class="flex justify-between items-center mt-1">
+                        <span class="text-[10px] md:text-sm text-slate-400 dark:text-slate-400">All-time</span>
+                        <span class="text-[10px] md:text-sm font-medium text-rose-600 dark:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            View <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Inflows (Top Right) -->
+            <div onclick="switchView('view-inflows')" class="glass-card p-4 md:p-8 rounded-2xl shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 border-sky-100 dark:border-sky-900/30 cursor-pointer group relative">
+                <div class="flex items-center justify-between mb-3 md:mb-4">
+                    <span class="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400 leading-tight">Inflows</span>
+                    <div class="p-1.5 md:p-2 bg-sky-50 dark:bg-sky-500/10 rounded-lg text-sky-600 dark:text-sky-400 hidden sm:block group-hover:bg-sky-100 dark:group-hover:bg-sky-500/20 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span id="total-inflows" class="text-lg md:text-3xl font-bold text-slate-800 dark:text-white">$0.00</span>
+                    <div class="flex justify-end mt-1">
+                        <span class="text-[10px] md:text-sm font-medium text-sky-600 dark:text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            Manage <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Assets (Bottom Left) -->
+            <div onclick="switchView('view-assets')" class="glass-card p-4 md:p-8 rounded-2xl shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 border-emerald-100 dark:border-emerald-900/30 cursor-pointer group relative">
+                <div class="flex items-center justify-between mb-3 md:mb-4">
+                    <span class="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-tight">Assets</span>
+                    <div class="p-1.5 md:p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg text-emerald-600 dark:text-emerald-400 hidden sm:block group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span id="total-assets" class="text-lg md:text-3xl font-bold text-slate-800 dark:text-white">$0.00</span>
+                    <div class="flex justify-between items-center mt-1">
+                        <span class="text-[10px] md:text-sm text-slate-400 dark:text-slate-400">Current value</span>
+                        <span class="text-[10px] md:text-sm font-medium text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            View <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Planning (Bottom Right) -->
+            <div class="glass-card p-4 md:p-8 rounded-2xl shadow-sm transition-all hover:shadow-md">
+                <div class="flex items-center justify-between mb-3 md:mb-4">
+                    <span class="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 leading-tight">Planning</span>
+                    <div class="p-1.5 md:p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-amber-600 dark:text-amber-400 hidden sm:block">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span id="planning-metric" class="text-lg md:text-3xl font-bold text-slate-800 dark:text-white">On Track</span>
+                    <span class="text-[10px] md:text-sm text-slate-400 dark:text-slate-400 mt-1">Goal progress</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Chart Section -->
+        <div class="mt-4 md:mt-6 glass-card p-4 md:p-8 rounded-2xl shadow-sm transition-all hover:shadow-md">
+            <div class="flex flex-col mb-4 gap-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-base md:text-lg font-bold text-slate-800 dark:text-white">Trend Analysis</h2>
+                        <p class="text-[10px] md:text-sm text-slate-500 dark:text-slate-400">Financial trajectories</p>
+                    </div>
+                    
+                    <!-- Chart Controls -->
+                    <div class="flex bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-lg w-full sm:w-auto">
+                        <button onclick="setChartType('bar')" id="btn-bar" class="flex-1 sm:flex-none px-4 py-1.5 text-xs md:text-sm font-medium rounded-md shadow bg-white text-slate-800 dark:bg-slate-700 dark:text-white transition-all">Bar</button>
+                        <button onclick="setChartType('line')" id="btn-line" class="flex-1 sm:flex-none px-4 py-1.5 text-xs md:text-sm font-medium rounded-md text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-all">Line</button>
+                        <button onclick="setChartType('mixed')" id="btn-mixed" class="flex-1 sm:flex-none px-4 py-1.5 text-xs md:text-sm font-medium rounded-md text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-all">Both</button>
+                    </div>
+                </div>
+
+                <!-- Metric Toggles -->
+                <div class="flex flex-wrap gap-2 md:gap-3">
+                    <button onclick="toggleMetric('inflows')" id="toggle-inflows" class="px-3 py-1.5 transition-all text-xs md:text-sm font-medium rounded-md shadow bg-white dark:bg-slate-700 text-slate-800 dark:text-white border-l-4 border-sky-500 hover:bg-slate-50 dark:hover:bg-slate-600">Inflows</button>
+                    <button onclick="toggleMetric('expenses')" id="toggle-expenses" class="px-3 py-1.5 transition-all text-xs md:text-sm font-medium rounded-md shadow bg-white dark:bg-slate-700 text-slate-800 dark:text-white border-l-4 border-rose-500 hover:bg-slate-50 dark:hover:bg-slate-600">Expenses</button>
+                    <button onclick="toggleMetric('assets')" id="toggle-assets" class="px-3 py-1.5 transition-all text-xs md:text-sm font-medium rounded-md shadow bg-white dark:bg-slate-700 text-slate-800 dark:text-white border-l-4 border-emerald-500 hover:bg-slate-50 dark:hover:bg-slate-600">Assets</button>
+                </div>
+            </div>
+            <div class="w-full h-64 md:h-80 relative">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- View: Expenses Page (Categories) -->
+    <div id="view-expenses" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-dashboard')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Dashboard
+            </button>
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m17 5-5-3-5 3"/><path d="m17 19-5 3-5-3"/><path d="M2 12h20"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Expenses Breakdown</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Categorize your actual spending</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            <!-- Ad-Hoc Expenses -->
+            <div onclick="openExpenseDetail('adhoc')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-rose-100 dark:border-rose-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ad-Hoc</span>
+                    </div>
+                    <span class="text-rose-600 dark:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="expense-adhoc-total" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Unplanned and variable daily spending.</p>
+            </div>
+
+            <!-- Budgeted Expenses -->
+            <div onclick="switchView('view-budget')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-fuchsia-100 dark:border-fuchsia-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Budgeted</span>
+                    </div>
+                    <span class="text-fuchsia-600 dark:text-fuchsia-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="expense-budgeted-total" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Planned spending matching your budget.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Expense Detail Page -->
+    <div id="view-expense-detail" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-expenses')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Expenses Breakdown
+            </button>
+            <div class="flex items-center gap-4">
+                <div id="expense-detail-icon-container" class="p-3 rounded-2xl shadow-sm"></div>
+                <div>
+                    <h1 id="expense-detail-title" class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Category</h1>
+                    <p id="expense-detail-subtitle" class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Details</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card flex flex-col rounded-3xl border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
+            <div class="p-6 md:p-8 flex-1 space-y-3 custom-scrollbar" id="expense-detail-list"></div>
+            <div id="expense-detail-form-container" class="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                <form onsubmit="saveExpenseDetailItem(event)" class="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <input type="text" id="new-expense-name" required placeholder="Description" class="flex-1 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:text-white transition-shadow w-full">
+                    <div class="relative w-full sm:w-48">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" id="new-expense-amount" required step="0.01" min="0" placeholder="0.00" class="w-full pl-8 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:text-white transition-shadow">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button" id="cancel-expense-edit-btn" onclick="cancelEditExpenseDetail()" class="hidden flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 p-3 rounded-xl transition-colors shadow-sm justify-center items-center" title="Cancel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                        <button type="submit" id="expense-submit-btn" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl transition-colors shadow-sm flex justify-center items-center" title="Save">
+                            <svg id="expense-submit-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Inflows Page (Categories) -->
+    <div id="view-inflows" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-dashboard')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Dashboard
+            </button>
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-2xl shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Inflows Breakdown</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Categorize your revenue sources</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            <!-- Recurring Inflows -->
+            <div onclick="openInflowDetail('recurring')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-sky-100 dark:border-sky-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recurring</span>
+                    </div>
+                    <span class="text-sky-600 dark:text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="inflow-recurring-total" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Stable, expected income like salary.</p>
+            </div>
+
+            <!-- Ad-Hoc Inflows -->
+            <div onclick="openInflowDetail('adhoc')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-violet-100 dark:border-violet-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ad-Hoc</span>
+                    </div>
+                    <span class="text-violet-600 dark:text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="inflow-adhoc-total" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Irregular income like freelance or gifts.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Inflow Detail Page -->
+    <div id="view-inflow-detail" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-inflows')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Inflows Breakdown
+            </button>
+            <div class="flex items-center gap-4">
+                <div id="inflow-detail-icon-container" class="p-3 rounded-2xl shadow-sm"></div>
+                <div>
+                    <h1 id="inflow-detail-title" class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Category</h1>
+                    <p id="inflow-detail-subtitle" class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Details</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card flex flex-col rounded-3xl border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
+            <div class="p-6 md:p-8 flex-1 space-y-3 custom-scrollbar" id="inflow-detail-list"></div>
+            <div id="inflow-detail-form-container" class="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                <form onsubmit="saveInflowDetailItem(event)" class="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <input type="text" id="new-inflow-name" required placeholder="Source Name" class="flex-1 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 dark:text-white transition-shadow w-full">
+                    <div class="relative w-full sm:w-48">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" id="new-inflow-amount" required step="0.01" min="0" placeholder="0.00" class="w-full pl-8 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 dark:text-white transition-shadow">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button" id="cancel-inflow-edit-btn" onclick="cancelEditInflowDetail()" class="hidden flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 p-3 rounded-xl transition-colors shadow-sm justify-center items-center" title="Cancel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                        <button type="submit" id="inflow-submit-btn" class="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-700 text-white p-3 rounded-xl transition-colors shadow-sm flex justify-center items-center" title="Save">
+                            <svg id="inflow-submit-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Budget Page -->
+    <div id="view-budget" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-expenses')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Expenses Breakdown
+            </button>
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Recurring Budget</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Manage your monthly allocations</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card flex flex-col rounded-3xl border-indigo-100 dark:border-indigo-900/30 shadow-sm overflow-hidden min-h-[400px]">
+            <div class="p-6 md:p-8 flex-1 space-y-3 custom-scrollbar" id="budget-items-list"></div>
+            <div id="budget-form-container" class="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                <form onsubmit="saveBudgetItem(event)" class="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <input type="text" id="new-budget-name" required placeholder="Category (e.g., Rent)" class="flex-1 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white transition-shadow w-full">
+                    <div class="relative w-full sm:w-48">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" id="new-budget-amount" required step="0.01" min="0" placeholder="0.00" class="w-full pl-8 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white transition-shadow">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button" id="cancel-edit-btn" onclick="cancelEditBudget()" class="hidden flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 p-3 rounded-xl transition-colors shadow-sm justify-center items-center" title="Cancel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                        <button type="submit" id="budget-submit-btn" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors shadow-sm flex justify-center items-center" title="Save">
+                            <svg id="budget-submit-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Assets Page -->
+    <div id="view-assets" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-dashboard')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Dashboard
+            </button>
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Assets Portfolio</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Detailed view of your net worth distribution</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            <!-- Liquid Assets -->
+            <div onclick="openAssetDetail('liquid')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-emerald-100 dark:border-emerald-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Liquid Assets</span>
+                    </div>
+                    <span class="text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="asset-liquid" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Cash, checking, and highly accessible funds.</p>
+            </div>
+
+            <!-- Investments -->
+            <div onclick="openAssetDetail('investments')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-sky-100 dark:border-sky-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Investments</span>
+                    </div>
+                    <span class="text-sky-600 dark:text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="asset-investments" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Brokerage accounts, crypto, and mutual funds.</p>
+            </div>
+
+            <!-- Fixed Assets -->
+            <div onclick="openAssetDetail('fixed')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-indigo-100 dark:border-indigo-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fixed Assets</span>
+                    </div>
+                    <span class="text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="asset-fixed" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">Real estate, vehicles, and physical properties.</p>
+            </div>
+
+            <!-- Retirement -->
+            <div onclick="openAssetDetail('retirement')" class="cursor-pointer glass-card p-6 md:p-8 rounded-2xl border-amber-100 dark:border-amber-900/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Retirement</span>
+                    </div>
+                    <span class="text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </div>
+                <div id="asset-retirement" class="text-2xl md:text-4xl font-bold text-slate-800 dark:text-white">$0.00</div>
+                <p class="text-xs text-slate-400 mt-2">401(k), IRA, and long-term pension plans.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Asset Detail Page -->
+    <div id="view-asset-detail" class="hidden max-w-4xl mx-auto px-4 py-8 md:py-12 page-enter">
+        <div class="mb-8 md:mb-12">
+            <button onclick="switchView('view-assets')" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors mb-6 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Assets Portfolio
+            </button>
+            <div class="flex items-center gap-4">
+                <div id="asset-detail-icon-container" class="p-3 rounded-2xl shadow-sm"></div>
+                <div>
+                    <h1 id="asset-detail-title" class="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Category</h1>
+                    <p id="asset-detail-subtitle" class="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Breakdown</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card flex flex-col rounded-3xl border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
+            <div class="p-6 md:p-8 flex-1 space-y-3 custom-scrollbar" id="asset-detail-list"></div>
+            <div id="asset-detail-form-container" class="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                <form onsubmit="saveAssetDetailItem(event)" class="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <input type="text" id="new-asset-name" required placeholder="Asset Name (e.g., Checking Account)" class="flex-1 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white transition-shadow w-full">
+                    <div class="relative w-full sm:w-48">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" id="new-asset-amount" required step="0.01" min="0" placeholder="0.00" class="w-full pl-8 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white transition-shadow">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button" id="cancel-asset-edit-btn" onclick="cancelEditAssetDetail()" class="hidden flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 p-3 rounded-xl transition-colors shadow-sm justify-center items-center" title="Cancel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                        <button type="submit" id="asset-submit-btn" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl transition-colors shadow-sm flex justify-center items-center" title="Save">
+                            <svg id="asset-submit-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Structure & State
+        let activePeriod = 'current';
+        const currentMonthPrefix = '2026-03';
+
+        let mockData = {
+            inflowDetails: {
+                recurring: [
+                    { id: 1, date: '2026-03-01', name: 'Primary Salary', amount: 5000.00 },
+                    { id: 3, date: '2026-02-01', name: 'Primary Salary', amount: 5000.00 } // Historical
+                ],
+                adhoc: [
+                    { id: 2, date: '2026-03-15', name: 'Freelance Work', amount: 850.00 }
+                ]
+            },
+            expenseDetails: {
+                adhoc: [
+                    { id: 2, date: '2026-03-02', name: 'Whole Foods Market', amount: 345.50 },
+                    { id: 5, date: '2026-03-05', name: 'Restaurants & Dining', amount: 299.75 },
+                    // Historical mock data
+                    { id: 6, date: '2026-02-14', name: 'Valentine Dinner', amount: 180.00 },
+                    { id: 7, date: '2026-02-20', name: 'Car Maintenance', amount: 450.00 }
+                ]
+            },
+            budgetItems: [
+                { id: 1, name: 'Housing & Utilities', amount: 2000.00 },
+                { id: 2, name: 'Groceries', amount: 800.00 },
+                { id: 3, name: 'Transportation', amount: 400.00 },
+                { id: 4, name: 'Healthcare', amount: 300.00 },
+                { id: 5, name: 'Debt Repayment', amount: 500.00 },
+                { id: 6, name: 'Savings & Investments', amount: 1000.00 }
+            ],
+            assetDetails: {
+                liquid: [
+                    { id: 101, name: 'Primary Checking Account', amount: 3000.00 },
+                    { id: 102, name: 'High-Yield Savings', amount: 1500.00 }
+                ],
+                investments: [
+                    { id: 201, name: 'Vanguard Brokerage', amount: 2000.00 },
+                    { id: 202, name: 'Crypto Hardware Wallet', amount: 1200.00 }
+                ],
+                fixed: [
+                    { id: 301, name: 'Primary Residence (Equity)', amount: 1500.00 }
+                ],
+                retirement: [
+                    { id: 401, name: 'Company 401(k)', amount: 2000.00 },
+                    { id: 402, name: 'Roth IRA', amount: 1349.75 }
+                ]
+            },
+            // The Archival Database (Mocking what Google Apps Script generates)
+            historicalSnapshots: {
+                '2026-02': {
+                    budgetItems: [
+                        { id: 1, name: 'Housing & Utilities', amount: 2000.00 },
+                        { id: 2, name: 'Groceries', amount: 750.00 }, 
+                        { id: 3, name: 'Transportation', amount: 400.00 },
+                        { id: 4, name: 'Healthcare', amount: 300.00 },
+                        { id: 5, name: 'Debt Repayment', amount: 600.00 },
+                        { id: 6, name: 'Savings & Investments', amount: 800.00 }
+                    ],
+                    assetDetails: {
+                        liquid: [
+                            { id: 101, name: 'Primary Checking Account', amount: 2500.00 },
+                            { id: 102, name: 'High-Yield Savings', amount: 1500.00 }
+                        ],
+                        investments: [
+                            { id: 201, name: 'Vanguard Brokerage', amount: 1800.00 },
+                            { id: 202, name: 'Crypto Hardware Wallet', amount: 1100.00 }
+                        ],
+                        fixed: [
+                            { id: 301, name: 'Primary Residence (Equity)', amount: 1500.00 }
+                        ],
+                        retirement: [
+                            { id: 401, name: 'Company 401(k)', amount: 1800.00 },
+                            { id: 402, name: 'Roth IRA', amount: 1349.75 }
+                        ]
+                    }
+                },
+                '2026-01': {
+                    budgetItems: [{ id: 1, name: 'Housing & Utilities', amount: 2000.00 }],
+                    assetDetails: { liquid: [{ id: 101, name: 'Checking', amount: 2000.00 }], investments: [], fixed: [], retirement: [] }
+                }
+            }
+        };
+
+        // --- Data Fetching Logic ---
+        function changePeriod(period) {
+            activePeriod = period;
+            updateUI();
+        }
+
+        // Filters flat ledgers for the requested month
+        function getActiveTransactions(list) {
+            if (!list) return [];
+            const prefix = activePeriod === 'current' ? currentMonthPrefix : activePeriod;
+            return list.filter(item => item.date && item.date.startsWith(prefix));
+        }
+
+        // Fetches either live data or historical snapshots
+        function getActiveState(type, category = null) {
+            if (activePeriod === 'current') {
+                return type === 'budget' ? mockData.budgetItems : mockData.assetDetails[category];
+            } else {
+                const snapshot = mockData.historicalSnapshots[activePeriod];
+                if (!snapshot) return [];
+                return type === 'budget' ? snapshot.budgetItems : snapshot.assetDetails[category] || [];
+            }
+        }
+
+        // --- Calculators ---
+        function getExpenseCategoryTotal(category) {
+            if (category === 'adhoc') {
+                return getActiveTransactions(mockData.expenseDetails.adhoc).reduce((sum, item) => sum + item.amount, 0);
+            }
+            return 0;
+        }
+
+        function getInflowCategoryTotal(category) {
+            return mockData.inflowDetails[category] ? getActiveTransactions(mockData.inflowDetails[category]).reduce((sum, item) => sum + item.amount, 0) : 0;
+        }
+
+        function getTotalExpenses() {
+            return getExpenseCategoryTotal('adhoc') + getTotalBudget();
+        }
+
+        function getTotalBudget() {
+            return getActiveState('budget').reduce((sum, item) => sum + item.amount, 0);
+        }
+
+        function getTotalInflows() {
+            return getInflowCategoryTotal('recurring') + getInflowCategoryTotal('adhoc');
+        }
+
+        function getAssetCategoryTotal(category) {
+            return getActiveState('asset', category).reduce((sum, item) => sum + item.amount, 0);
+        }
+
+        function getTotalAssets() {
+            const targetObj = activePeriod === 'current' ? mockData.assetDetails : (mockData.historicalSnapshots[activePeriod]?.assetDetails || {});
+            return Object.keys(targetObj).reduce((sum, key) => sum + getAssetCategoryTotal(key), 0);
+        }
+
+        // Format currency helper
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        }
+
+        function updateUI() {
+            // Update Dashboard Header
+            const dashboardSubtitle = document.getElementById('dashboard-subtitle');
+            if (dashboardSubtitle) {
+                if (activePeriod === 'current') {
+                    dashboardSubtitle.textContent = 'Overall financial performance';
+                } else {
+                    const select = document.getElementById('period-picker');
+                    dashboardSubtitle.textContent = `Historical Snapshot: ${select.options[select.selectedIndex].text}`;
+                }
+            }
+
+            const totalExpenses = getTotalExpenses();
+            const totalBudget = getTotalBudget();
+            const totalAssets = getTotalAssets();
+            const totalInflows = getTotalInflows();
+            
+            // Dashboard Text
+            const expensesTextEl = document.getElementById('total-expenses');
+            if (expensesTextEl) expensesTextEl.textContent = formatCurrency(totalExpenses);
+
+            const inflowsTextEl = document.getElementById('total-inflows');
+            if (inflowsTextEl) inflowsTextEl.textContent = formatCurrency(totalInflows);
+
+            const assetsTextEl = document.getElementById('total-assets');
+            if (assetsTextEl) assetsTextEl.textContent = formatCurrency(totalAssets);
+
+            // Expense Page Inner Numbers
+            const adhocEl = document.getElementById('expense-adhoc-total');
+            if (adhocEl) {
+                adhocEl.textContent = formatCurrency(getExpenseCategoryTotal('adhoc'));
+                document.getElementById('expense-budgeted-total').textContent = formatCurrency(totalBudget);
+            }
+
+            // Inflow Page Inner Numbers
+            const inflowRecurringEl = document.getElementById('inflow-recurring-total');
+            if (inflowRecurringEl) {
+                inflowRecurringEl.textContent = formatCurrency(getInflowCategoryTotal('recurring'));
+                document.getElementById('inflow-adhoc-total').textContent = formatCurrency(getInflowCategoryTotal('adhoc'));
+            }
+
+            // Asset Page Inner Numbers
+            const liquidEl = document.getElementById('asset-liquid');
+            if (liquidEl) {
+                liquidEl.textContent = formatCurrency(getAssetCategoryTotal('liquid'));
+                document.getElementById('asset-investments').textContent = formatCurrency(getAssetCategoryTotal('investments'));
+                document.getElementById('asset-fixed').textContent = formatCurrency(getAssetCategoryTotal('fixed'));
+                document.getElementById('asset-retirement').textContent = formatCurrency(getAssetCategoryTotal('retirement'));
+            }
+        }
+
+        // --- View Switching Logic ---
+        function switchView(viewId) {
+            const views = [
+                'view-dashboard', 
+                'view-inflows', 
+                'view-inflow-detail',
+                'view-expenses', 
+                'view-expense-detail', 
+                'view-assets', 
+                'view-budget', 
+                'view-asset-detail'
+            ];
+            
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if (el) el.classList.add('hidden');
+            });
+            
+            const targetView = document.getElementById(viewId);
+            if (targetView) targetView.classList.remove('hidden');
+
+            if (viewId === 'view-dashboard') {
+                updateUI(); 
+                if (trendChart) trendChart.resize();
+            } else if (viewId === 'view-inflows') {
+                updateUI(); 
+            } else if (viewId === 'view-inflow-detail') {
+                cancelEditInflowDetail(); 
+                renderInflowDetailList(); 
+            } else if (viewId === 'view-expense-detail') {
+                cancelEditExpenseDetail(); 
+                renderExpenseDetailList(); 
+            } else if (viewId === 'view-budget') {
+                cancelEditBudget(); 
+                renderBudgetList(); 
+            } else if (viewId === 'view-asset-detail') {
+                cancelEditAssetDetail();
+                renderAssetDetailList();
+            }
+        }
+
+        // --- Expenses Logic ---
+
+        const expenseMeta = {
+            adhoc: {
+                title: 'Ad-Hoc Expenses',
+                subtitle: 'Unplanned and variable daily spending.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+                colorClass: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                borderClass: 'border-rose-100 dark:border-rose-700/50'
+            }
+        };
+
+        let currentExpenseCategory = null;
+        let editingExpenseId = null;
+
+        function openExpenseDetail(category) {
+            currentExpenseCategory = category;
+            const meta = expenseMeta[category];
+            
+            document.getElementById('expense-detail-title').textContent = meta.title;
+            document.getElementById('expense-detail-subtitle').textContent = meta.subtitle;
+            
+            const iconContainer = document.getElementById('expense-detail-icon-container');
+            iconContainer.className = `p-3 rounded-2xl shadow-sm ${meta.colorClass}`;
+            iconContainer.innerHTML = meta.icon;
+
+            cancelEditExpenseDetail(); 
+            renderExpenseDetailList();
+            switchView('view-expense-detail');
+        }
+
+        function renderExpenseDetailList() {
+            const listEl = document.getElementById('expense-detail-list');
+            listEl.innerHTML = ''; 
+
+            const items = getActiveTransactions(mockData.expenseDetails[currentExpenseCategory]);
+            const meta = expenseMeta[currentExpenseCategory];
+            const isReadOnly = activePeriod !== 'current';
+
+            const formContainer = document.getElementById('expense-detail-form-container');
+            if(formContainer) formContainer.classList.toggle('hidden', isReadOnly);
+
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No expenses recorded for this period.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const actionButtons = isReadOnly ? '' : `
+                    <button onclick="editExpenseDetailItem(${item.id})" class="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button onclick="deleteExpenseDetailItem(${item.id})" class="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Remove">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                `;
+
+                const itemEl = document.createElement('div');
+                itemEl.className = `flex justify-between items-center p-4 md:p-5 bg-white dark:bg-slate-800 border ${meta.borderClass} rounded-xl shadow-sm hover:shadow-md transition-shadow group`;
+                itemEl.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="text-sm md:text-base font-semibold text-slate-800 dark:text-slate-200 truncate">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-base md:text-lg font-bold text-slate-900 dark:text-white mr-2">${formatCurrency(item.amount)}</span>
+                        ${actionButtons}
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        function editExpenseDetailItem(id) {
+            const items = mockData.expenseDetails[currentExpenseCategory];
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            editingExpenseId = id;
+            
+            document.getElementById('new-expense-name').value = item.name;
+            document.getElementById('new-expense-amount').value = item.amount;
+            
+            const submitBtn = document.getElementById('expense-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'; 
+            submitBtn.classList.replace('bg-rose-600', 'bg-emerald-600');
+            submitBtn.classList.replace('hover:bg-rose-700', 'hover:bg-emerald-700');
+            
+            document.getElementById('cancel-expense-edit-btn').classList.remove('hidden');
+            document.getElementById('new-expense-name').focus();
+        }
+
+        function cancelEditExpenseDetail() {
+            editingExpenseId = null;
+            
+            document.getElementById('new-expense-name').value = '';
+            document.getElementById('new-expense-amount').value = '';
+            
+            const submitBtn = document.getElementById('expense-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'; 
+            submitBtn.classList.replace('bg-emerald-600', 'bg-rose-600');
+            submitBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-rose-700');
+            
+            document.getElementById('cancel-expense-edit-btn').classList.add('hidden');
+        }
+
+        function saveExpenseDetailItem(e) {
+            e.preventDefault(); 
+            
+            const nameInput = document.getElementById('new-expense-name');
+            const amountInput = document.getElementById('new-expense-amount');
+            
+            const name = nameInput.value.trim();
+            const amount = parseFloat(amountInput.value);
+
+            if (name && !isNaN(amount)) {
+                const items = mockData.expenseDetails[currentExpenseCategory];
+
+                if (editingExpenseId !== null) {
+                    const index = items.findIndex(i => i.id === editingExpenseId);
+                    if (index !== -1) {
+                        items[index] = { ...items[index], name: name, amount: amount }; 
+                    }
+                } else {
+                    const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
+                    items.push({
+                        id: newId,
+                        date: `${currentMonthPrefix}-15`,
+                        name: name,
+                        amount: amount
+                    });
+                }
+
+                cancelEditExpenseDetail();
+                renderExpenseDetailList();
+                updateUI();
+            }
+        }
+
+        function deleteExpenseDetailItem(id) {
+            mockData.expenseDetails[currentExpenseCategory] = mockData.expenseDetails[currentExpenseCategory].filter(item => item.id !== id);
+            renderExpenseDetailList();
+            updateUI();
+        }
+
+
+        // --- Inflows Logic ---
+
+        const inflowMeta = {
+            recurring: {
+                title: 'Recurring Inflows',
+                subtitle: 'Stable, expected income like salary.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>',
+                colorClass: 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                borderClass: 'border-sky-100 dark:border-sky-700/50'
+            },
+            adhoc: {
+                title: 'Ad-Hoc Inflows',
+                subtitle: 'Irregular income like freelance or gifts.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+                colorClass: 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400',
+                borderClass: 'border-violet-100 dark:border-violet-700/50'
+            }
+        };
+
+        let currentInflowCategory = null;
+        let editingInflowId = null;
+
+        function openInflowDetail(category) {
+            currentInflowCategory = category;
+            const meta = inflowMeta[category];
+            
+            document.getElementById('inflow-detail-title').textContent = meta.title;
+            document.getElementById('inflow-detail-subtitle').textContent = meta.subtitle;
+            
+            const iconContainer = document.getElementById('inflow-detail-icon-container');
+            iconContainer.className = `p-3 rounded-2xl shadow-sm ${meta.colorClass}`;
+            iconContainer.innerHTML = meta.icon;
+
+            cancelEditInflowDetail(); 
+            renderInflowDetailList();
+            switchView('view-inflow-detail');
+        }
+
+        function renderInflowDetailList() {
+            const listEl = document.getElementById('inflow-detail-list');
+            listEl.innerHTML = ''; 
+
+            const items = getActiveTransactions(mockData.inflowDetails[currentInflowCategory]);
+            const meta = inflowMeta[currentInflowCategory];
+            const isReadOnly = activePeriod !== 'current';
+
+            const formContainer = document.getElementById('inflow-detail-form-container');
+            if(formContainer) formContainer.classList.toggle('hidden', isReadOnly);
+
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No inflows recorded for this period.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const actionButtons = isReadOnly ? '' : `
+                    <button onclick="editInflowDetailItem(${item.id})" class="text-slate-400 hover:text-sky-500 dark:text-slate-500 dark:hover:text-sky-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button onclick="deleteInflowDetailItem(${item.id})" class="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Remove">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                `;
+
+                const itemEl = document.createElement('div');
+                itemEl.className = `flex justify-between items-center p-4 md:p-5 bg-white dark:bg-slate-800 border ${meta.borderClass} rounded-xl shadow-sm hover:shadow-md transition-shadow group`;
+                itemEl.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="text-sm md:text-base font-semibold text-slate-800 dark:text-slate-200 truncate">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-base md:text-lg font-bold text-slate-900 dark:text-white mr-2">${formatCurrency(item.amount)}</span>
+                        ${actionButtons}
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        function editInflowDetailItem(id) {
+            const items = mockData.inflowDetails[currentInflowCategory];
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            editingInflowId = id;
+            
+            document.getElementById('new-inflow-name').value = item.name;
+            document.getElementById('new-inflow-amount').value = item.amount;
+            
+            const submitBtn = document.getElementById('inflow-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'; 
+            submitBtn.classList.replace('bg-sky-600', 'bg-emerald-600');
+            submitBtn.classList.replace('hover:bg-sky-700', 'hover:bg-emerald-700');
+            
+            document.getElementById('cancel-inflow-edit-btn').classList.remove('hidden');
+            document.getElementById('new-inflow-name').focus();
+        }
+
+        function cancelEditInflowDetail() {
+            editingInflowId = null;
+            
+            document.getElementById('new-inflow-name').value = '';
+            document.getElementById('new-inflow-amount').value = '';
+            
+            const submitBtn = document.getElementById('inflow-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'; 
+            submitBtn.classList.replace('bg-emerald-600', 'bg-sky-600');
+            submitBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-sky-700');
+            
+            document.getElementById('cancel-inflow-edit-btn').classList.add('hidden');
+        }
+
+        function saveInflowDetailItem(e) {
+            e.preventDefault(); 
+            
+            const nameInput = document.getElementById('new-inflow-name');
+            const amountInput = document.getElementById('new-inflow-amount');
+            
+            const name = nameInput.value.trim();
+            const amount = parseFloat(amountInput.value);
+
+            if (name && !isNaN(amount)) {
+                const items = mockData.inflowDetails[currentInflowCategory];
+
+                if (editingInflowId !== null) {
+                    const index = items.findIndex(i => i.id === editingInflowId);
+                    if (index !== -1) {
+                        items[index] = { ...items[index], name: name, amount: amount }; 
+                    }
+                } else {
+                    const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
+                    items.push({ id: newId, date: `${currentMonthPrefix}-15`, name: name, amount: amount });
+                }
+
+                cancelEditInflowDetail();
+                renderInflowDetailList();
+                updateUI();
+            }
+        }
+
+        function deleteInflowDetailItem(id) {
+            mockData.inflowDetails[currentInflowCategory] = mockData.inflowDetails[currentInflowCategory].filter(item => item.id !== id);
+            renderInflowDetailList();
+            updateUI();
+        }
+
+        // --- Budget Logic ---
+
+        let editingBudgetId = null; 
+
+        function renderBudgetList() {
+            const listEl = document.getElementById('budget-items-list');
+            listEl.innerHTML = ''; 
+
+            const items = getActiveState('budget');
+            const isReadOnly = activePeriod !== 'current';
+
+            const formContainer = document.getElementById('budget-form-container');
+            if(formContainer) formContainer.classList.toggle('hidden', isReadOnly);
+
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No recurring expenses found.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const actionButtons = isReadOnly ? '' : `
+                    <button onclick="editBudgetItem(${item.id})" class="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button onclick="deleteBudgetItem(${item.id})" class="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Remove">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                `;
+
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex justify-between items-center p-3 md:p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-xl hover:shadow-sm transition-shadow group';
+                itemEl.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <span class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-sm font-bold text-slate-900 dark:text-white mr-2">${formatCurrency(item.amount)}</span>
+                        ${actionButtons}
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        function editBudgetItem(id) {
+            const items = getActiveState('budget');
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            editingBudgetId = id;
+            
+            document.getElementById('new-budget-name').value = item.name;
+            document.getElementById('new-budget-amount').value = item.amount;
+            
+            const submitBtn = document.getElementById('budget-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'; 
+            submitBtn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+            submitBtn.classList.replace('hover:bg-indigo-700', 'hover:bg-emerald-700');
+            
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            document.getElementById('new-budget-name').focus();
+        }
+
+        function cancelEditBudget() {
+            editingBudgetId = null;
+            
+            document.getElementById('new-budget-name').value = '';
+            document.getElementById('new-budget-amount').value = '';
+            
+            const submitBtn = document.getElementById('budget-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'; 
+            submitBtn.classList.replace('bg-emerald-600', 'bg-indigo-600');
+            submitBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-indigo-700');
+            
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+        }
+
+        function saveBudgetItem(e) {
+            e.preventDefault(); 
+            
+            const nameInput = document.getElementById('new-budget-name');
+            const amountInput = document.getElementById('new-budget-amount');
+            
+            const name = nameInput.value.trim();
+            const amount = parseFloat(amountInput.value);
+
+            if (name && !isNaN(amount)) {
+                if (editingBudgetId !== null) {
+                    const index = mockData.budgetItems.findIndex(i => i.id === editingBudgetId);
+                    if (index !== -1) {
+                        mockData.budgetItems[index] = { id: editingBudgetId, name: name, amount: amount };
+                    }
+                } else {
+                    const newId = mockData.budgetItems.length > 0 ? Math.max(...mockData.budgetItems.map(i => i.id)) + 1 : 1;
+                    mockData.budgetItems.push({ id: newId, name: name, amount: amount });
+                }
+
+                cancelEditBudget();
+                renderBudgetList();
+                updateUI();
+            }
+        }
+
+        function deleteBudgetItem(id) {
+            mockData.budgetItems = mockData.budgetItems.filter(item => item.id !== id);
+            renderBudgetList();
+            updateUI();
+        }
+
+        // --- Asset Detail Logic ---
+        
+        const assetMeta = {
+            liquid: {
+                title: 'Liquid Assets',
+                subtitle: 'Cash, checking, and highly accessible funds.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
+                colorClass: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                borderClass: 'border-emerald-100 dark:border-emerald-700/50'
+            },
+            investments: {
+                title: 'Investments',
+                subtitle: 'Brokerage accounts, crypto, and mutual funds.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
+                colorClass: 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                borderClass: 'border-sky-100 dark:border-sky-700/50'
+            },
+            fixed: {
+                title: 'Fixed Assets',
+                subtitle: 'Real estate, vehicles, and physical properties.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+                colorClass: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+                borderClass: 'border-indigo-100 dark:border-indigo-700/50'
+            },
+            retirement: {
+                title: 'Retirement',
+                subtitle: '401(k), IRA, and long-term pension plans.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+                colorClass: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                borderClass: 'border-amber-100 dark:border-amber-700/50'
+            }
+        };
+
+        let currentAssetCategory = null;
+        let editingAssetId = null;
+
+        function openAssetDetail(category) {
+            currentAssetCategory = category;
+            const meta = assetMeta[category];
+            
+            document.getElementById('asset-detail-title').textContent = meta.title;
+            document.getElementById('asset-detail-subtitle').textContent = meta.subtitle;
+            
+            const iconContainer = document.getElementById('asset-detail-icon-container');
+            iconContainer.className = `p-3 rounded-2xl shadow-sm ${meta.colorClass}`;
+            iconContainer.innerHTML = meta.icon;
+
+            cancelEditAssetDetail(); 
+            renderAssetDetailList();
+            switchView('view-asset-detail');
+        }
+
+        function renderAssetDetailList() {
+            const listEl = document.getElementById('asset-detail-list');
+            listEl.innerHTML = ''; 
+
+            const items = getActiveState('asset', currentAssetCategory);
+            const meta = assetMeta[currentAssetCategory];
+            const isReadOnly = activePeriod !== 'current';
+
+            const formContainer = document.getElementById('asset-detail-form-container');
+            if(formContainer) formContainer.classList.toggle('hidden', isReadOnly);
+
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No assets found in this category.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const actionButtons = isReadOnly ? '' : `
+                    <button onclick="editAssetDetailItem(${item.id})" class="text-slate-400 hover:text-emerald-500 dark:text-slate-500 dark:hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button onclick="deleteAssetDetailItem(${item.id})" class="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 p-1" title="Remove">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                `;
+
+                const itemEl = document.createElement('div');
+                itemEl.className = `flex justify-between items-center p-4 md:p-5 bg-white dark:bg-slate-800 border ${meta.borderClass} rounded-xl shadow-sm hover:shadow-md transition-shadow group`;
+                itemEl.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="text-sm md:text-base font-semibold text-slate-800 dark:text-slate-200 truncate">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-base md:text-lg font-bold text-slate-900 dark:text-white mr-2">${formatCurrency(item.amount)}</span>
+                        ${actionButtons}
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        function editAssetDetailItem(id) {
+            const items = getActiveState('asset', currentAssetCategory);
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            editingAssetId = id;
+            
+            document.getElementById('new-asset-name').value = item.name;
+            document.getElementById('new-asset-amount').value = item.amount;
+            
+            const submitBtn = document.getElementById('asset-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            
+            document.getElementById('cancel-asset-edit-btn').classList.remove('hidden');
+            document.getElementById('new-asset-name').focus();
+        }
+
+        function cancelEditAssetDetail() {
+            editingAssetId = null;
+            
+            document.getElementById('new-asset-name').value = '';
+            document.getElementById('new-asset-amount').value = '';
+            
+            const submitBtn = document.getElementById('asset-submit-btn');
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+            
+            document.getElementById('cancel-asset-edit-btn').classList.add('hidden');
+        }
+
+        function saveAssetDetailItem(e) {
+            e.preventDefault(); 
+            
+            const nameInput = document.getElementById('new-asset-name');
+            const amountInput = document.getElementById('new-asset-amount');
+            
+            const name = nameInput.value.trim();
+            const amount = parseFloat(amountInput.value);
+
+            if (name && !isNaN(amount)) {
+                const items = mockData.assetDetails[currentAssetCategory];
+
+                if (editingAssetId !== null) {
+                    const index = items.findIndex(i => i.id === editingAssetId);
+                    if (index !== -1) {
+                        items[index] = { id: editingAssetId, name: name, amount: amount };
+                    }
+                } else {
+                    const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : Date.now();
+                    items.push({ id: newId, name: name, amount: amount });
+                }
+
+                cancelEditAssetDetail();
+                renderAssetDetailList();
+                updateUI(); 
+            }
+        }
+
+        function deleteAssetDetailItem(id) {
+            mockData.assetDetails[currentAssetCategory] = mockData.assetDetails[currentAssetCategory].filter(item => item.id !== id);
+            renderAssetDetailList();
+            updateUI(); 
+        }
+
+        // --- Chart Logic & Backend Simulation ---
+        let trendChart;
+        let currentChartMode = 'bar';
+        let activeMetrics = { inflows: false, expenses: true, assets: true }; 
+
+        const chartColors = {
+            inflows: { border: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.5)' },   // Sky 500
+            expenses: { border: '#e11d48', bg: 'rgba(225, 29, 72, 0.5)' }, // Rose 600
+            assets: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.5)' }   // Emerald 500
+        };
+        
+        // Simulates pre-calculated 12-month aggregated data returned by Apps Script
+        const chartMockData = {
+            labels: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+            inflows: [5400, 5100, 6000, 5000, 5200, 5300, 5500, 5000, 6200, 5000, 5000, 5850],
+            expenses: [2200, 2150, 2600, 2300, 2100, 2400, 2550, 2300, 2800, 2000, 3180, 2450.25],
+            assets: [10500, 10100, 11200, 11800, 12000, 12200, 12400, 12500, 12549.75, 4000, 8950, 12549.75]
+        };
+
+        const metricsConfig = {
+            inflows: { label: 'Inflows', data: chartMockData.inflows, color: chartColors.inflows },
+            expenses: { label: 'Expenses', data: chartMockData.expenses, color: chartColors.expenses },
+            assets: { label: 'Assets', data: chartMockData.assets, color: chartColors.assets }
+        };
+
+        const alignLinePlugin = {
+            id: 'alignLinePlugin',
+            beforeDatasetDraw: (chart, args) => {
+                const dataset = chart.data.datasets[args.index];
+                if (dataset.type === 'line' && dataset.linkedBarIndex !== undefined) {
+                    const barMeta = chart.getDatasetMeta(dataset.linkedBarIndex);
+                    const lineMeta = chart.getDatasetMeta(args.index);
+                    
+                    chart.ctx.save(); 
+                    if (barMeta && chart.isDatasetVisible(dataset.linkedBarIndex)) {
+                        let offset = 0;
+                        for (let i = 0; i < barMeta.data.length; i++) {
+                            if (barMeta.data[i] && lineMeta.data[i]) {
+                                offset = barMeta.data[i].x - lineMeta.data[i].x;
+                                break;
+                            }
+                        }
+                        chart.ctx.translate(offset, 0);
+                    }
+                }
+            },
+            afterDatasetDraw: (chart, args) => {
+                const dataset = chart.data.datasets[args.index];
+                if (dataset.type === 'line' && dataset.linkedBarIndex !== undefined) {
+                    chart.ctx.restore(); 
+                }
+            }
+        };
+
+        function initChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b'; 
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+            Chart.defaults.color = textColor;
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
+            trendChart = new Chart(ctx, {
+                type: 'bar', 
+                data: {
+                    labels: chartMockData.labels,
+                    datasets: [] 
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { display: false } 
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor, drawBorder: false } },
+                        y: { 
+                            grid: { color: gridColor, drawBorder: false },
+                            beginAtZero: true,
+                            ticks: { callback: (value) => '$' + value }
+                        }
+                    }
+                },
+                plugins: [alignLinePlugin]
+            });
+            
+            updateMetricButtons();
+            setChartType(currentChartMode);
+        }
+
+        function toggleMetric(metric) {
+            activeMetrics[metric] = !activeMetrics[metric];
+            
+            if (!activeMetrics.inflows && !activeMetrics.expenses && !activeMetrics.assets) {
+                activeMetrics[metric] = true; 
+                return;
+            }
+            
+            updateMetricButtons();
+            setChartType(currentChartMode); 
+        }
+
+        function updateMetricButtons() {
+            const borderColors = {
+                inflows: 'border-sky-500',
+                expenses: 'border-rose-500',
+                assets: 'border-emerald-500'
+            };
+
+            ['inflows', 'expenses', 'assets'].forEach(m => {
+                const el = document.getElementById('toggle-' + m);
+                if (activeMetrics[m]) {
+                    el.className = `px-3 py-1.5 transition-all text-xs md:text-sm font-medium rounded-md shadow bg-white dark:bg-slate-700 text-slate-800 dark:text-white border-l-4 ${borderColors[m]}`;
+                } else {
+                    el.className = `px-3 py-1.5 transition-all text-xs md:text-sm font-medium rounded-md bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border-l-4 border-transparent hover:bg-slate-200 dark:hover:bg-slate-800`;
+                }
+            });
+        }
+
+        function setChartType(mode) {
+            currentChartMode = mode;
+
+            const buttons = ['bar', 'line', 'mixed'];
+            buttons.forEach(btn => {
+                const el = document.getElementById('btn-' + btn);
+                if (btn === mode) {
+                    el.className = "flex-1 sm:flex-none px-4 py-1.5 text-xs md:text-sm font-medium rounded-md shadow bg-white text-slate-800 dark:bg-slate-700 dark:text-white transition-all";
+                } else {
+                    el.className = "flex-1 sm:flex-none px-4 py-1.5 text-xs md:text-sm font-medium rounded-md text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-all";
+                }
+            });
+
+            const createBar = (label, data, colorInfo) => ({
+                label: label,
+                data: data,
+                backgroundColor: colorInfo.bg,
+                borderColor: colorInfo.border,
+                borderWidth: 2,
+                type: 'bar',
+                borderRadius: 4
+            });
+
+            const createLine = (label, data, colorInfo) => ({
+                label: label,
+                data: data,
+                backgroundColor: 'transparent', 
+                borderColor: colorInfo.border,
+                borderWidth: 2,
+                type: 'line',
+                tension: 0.4,
+                pointBackgroundColor: colorInfo.border
+            });
+
+            const activeKeys = ['inflows', 'expenses', 'assets'].filter(k => activeMetrics[k]);
+
+            if (mode === 'bar') {
+                trendChart.data.datasets = activeKeys.map(k => createBar(metricsConfig[k].label, metricsConfig[k].data, metricsConfig[k].color));
+            } else if (mode === 'line') {
+                trendChart.data.datasets = activeKeys.map(k => createLine(metricsConfig[k].label, metricsConfig[k].data, metricsConfig[k].color));
+            } else if (mode === 'mixed') {
+                const newDatasets = [];
+                activeKeys.forEach(k => {
+                    newDatasets.push(createBar(`${metricsConfig[k].label} (Bar)`, metricsConfig[k].data, metricsConfig[k].color));
+                });
+                activeKeys.forEach((k, index) => {
+                    const lineDs = createLine(`${metricsConfig[k].label} (Line)`, metricsConfig[k].data, metricsConfig[k].color);
+                    lineDs.linkedBarIndex = index; 
+                    newDatasets.push(lineDs);
+                });
+                trendChart.data.datasets = newDatasets;
+            }
+            trendChart.update();
+        }
+
+        function updateChartTheme() {
+            if (!trendChart) return;
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+            trendChart.options.scales.x.grid.color = gridColor;
+            trendChart.options.scales.y.grid.color = gridColor;
+            Chart.defaults.color = textColor;
+            trendChart.update();
+        }
+
+        // Theme Toggle Logic
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            updateChartTheme();
+        }
+
+        window.onload = () => {
+            updateUI();
+            initChart();
+        };
+    </script>
+</body>
+</html>
